@@ -1,0 +1,345 @@
+<html>
+<script src="https://code.jquery.com/jquery-2.2.4.min.js"
+	integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44="
+	crossorigin="anonymous"></script>
+
+<link rel="stylesheet"
+	href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
+	integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7"
+	crossorigin="anonymous">
+
+<script
+	src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"
+	integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
+	crossorigin="anonymous"></script>
+
+<script src="https://use.fontawesome.com/db1e1b31c7.js"></script>
+
+<script src="lib/jquery-countdown/js/jquery.countdown.min.js"></script>
+
+<style>
+.modal-backdrop {
+	opacity: 1 !important;
+}
+</style>
+
+<script>
+	var openDate = new Date(2016, 1 - 1, 1);
+
+	var canvas;
+	var ctx;
+	var x, y;
+	var width, height;
+	var timer;
+	var paused;
+	var queue;
+
+	$(document).ready(function() {
+		canvas = document.getElementById("canvas")
+		ctx = canvas.getContext("2d");
+
+		$("#btn_play").hide();
+		$("#btn_pause").show();
+		paused = false;
+
+		var currentDate = new Date();
+		if (currentDate < openDate) {
+			$("#countdown").countdown({
+				image : "lib/jquery-countdown/img/digits.png",
+				format : "dd:hh:mm:ss",
+				endTime : openDate,
+				timerEnd : function() {
+					$("#cover_modal").modal("hide");
+					reset();
+				}
+			});
+			$("#cover_modal").modal({
+				backdrop : "static"
+			});
+			$("#cover_modal").modal("show");
+		} else {
+			reset();
+		}
+	});
+
+	function next() {
+		var pos = queue.pop();
+		x = pos.x;
+		y = pos.y;
+	}
+
+	function hasNext() {
+		return queue.length != 0;
+	}
+
+	function draw() {
+		if (y != -1 && !inside()) {
+			clearRect(x, y);
+		}
+
+		if (hasNext()) {
+			next();
+			updateProgress();
+			drawRect(x, y);
+			timer = setTimeout(draw, $("#sel_speed").val())
+		}
+	}
+
+	function clearCanvas() {
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+	}
+
+	function drawRect(x, y, color) {
+		var color = $("#sel_color").val();
+		if (color == "random") {
+			var options = $("#sel_color option");
+			ctx.fillStyle = options.eq(
+					Math.floor(Math.random() * (options.length - 1))).val();
+		} else {
+			ctx.fillStyle = color;
+		}
+		var pixelSize = $("#sel_pixel_size").val();
+		ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+		//ctx.fillRect(x * pixelSize,  y * pixelSize, canvas.width / 2, canvas.height / 2);
+	}
+
+	function clearRect(x, y) {
+		var pixelSize = $("#sel_pixel_size").val();
+		ctx.clearRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+	}
+
+	function inside() {
+		var pos = normalize(x, y);
+		return (Math.pow(pos.x * pos.x + pos.y * pos.y - 1, 3) - pos.x * pos.x
+				* Math.pow(pos.y, 3) < 0);
+	}
+
+	function normalize(x, y) {
+		var scale = 1.2;
+		var nx = -1, ny = -1;
+		var num = $("#sel_number").val();
+		switch (num) {
+		case "2":
+			if (x < width / 2) {
+				nx = -((x - width / 4) / (width / 4)) * scale;
+			} else {
+				nx = -((x - width * 3 / 4) / (width / 4)) * scale;
+			}
+			ny = -((y - height / 4) / (height / 4) - 1 - 0.1) * scale;
+			break;
+		case "3":
+			if (y < height / 2) {
+				if (x < width / 2) {
+					nx = -((x - width / 4) / (width / 4)) * scale;
+				} else {
+					nx = -((x - width * 3 / 4) / (width / 4)) * scale;
+				}
+
+				ny = -((y - height / 4) / (height / 4) - 0.1) * scale;
+			} else {
+				nx = -((x - width / 4) / (width / 4) - 1) * scale;
+				ny = -((y - height * 3 / 4) / (height / 4) - 0.1) * scale;
+			}
+			break;
+		case "4":
+			if (x < width / 2) {
+				nx = -((x - width / 4) / (width / 4)) * scale;
+			} else {
+				nx = -((x - width * 3 / 4) / (width / 4)) * scale;
+			}
+			if (y < height / 2) {
+				ny = -((y - height / 4) / (height / 4) - 0.1) * scale;
+			} else {
+				ny = -((y - height * 3 / 4) / (height / 4) - 0.1) * scale;
+			}
+			break;
+		case "1":
+		default:
+			nx = -((x - width / 2) / (width / 2)) * scale;
+			ny = -((y - height / 2) / (height / 2) - 0.1) * scale;
+			break;
+		}
+		return {
+			x : nx,
+			y : ny
+		};
+	}
+
+	function updateProgress() {
+		var total = width * height;
+		var p = 100 * (total - queue.length) / total;
+		$("#dv_progress").width(p.toFixed(0) + "%");
+		$("#sp_progress").text(p.toFixed(0) + "%");
+	}
+
+	function reset() {
+		clearTimeout(timer);
+		clearCanvas();
+
+		var pixelSize = $("#sel_pixel_size").val();
+		width = canvas.width / pixelSize;
+		height = canvas.height / pixelSize;
+
+		x = 0, y = -1;
+		lastX = -1, lastY = -1;
+		prepareQueue();
+
+		if (!paused) {
+			timer = setTimeout(draw, $("#sel_speed").val());
+		}
+	}
+
+	function pause() {
+		$("#btn_pause").hide();
+		$("#btn_play").show();
+		paused = true;
+		clearTimeout(timer);
+	}
+
+	function play() {
+		$("#btn_play").hide();
+		$("#btn_pause").show();
+		paused = false;
+		timer = setTimeout(draw, $("#sel_speed").val());
+	}
+
+	function shuffle(data) {
+		var j, x, i;
+		for (i = data.length; i; i -= 1) {
+			j = Math.floor(Math.random() * i);
+			x = data[i - 1];
+			data[i - 1] = data[j];
+			data[j] = x;
+		}
+	}
+
+	function prepareQueue() {
+		queue = [];
+		for (var i = width - 1; i >= 0; i--) {
+			for (var j = height - 1; j >= 0; j--) {
+				queue.push({
+					x : i,
+					y : j
+				});
+			}
+		}
+		var isRandom = ($("#sel_pattern").val() == "random");
+		if (isRandom) {
+			shuffle(queue);
+		}
+	}
+</script>
+<body>
+	<div class="container">
+		<div class="page-header">
+			<h1>Heart</h1>
+		</div>
+
+		<div class="row well">
+			<div class="col-md-2">
+				<label for="sel_color"><i class="fa fa-paint-brush"
+					aria-hidden="true"></i> Color</label> <select id="sel_color"
+					class="form-control">
+					<option value="red">Red</option>
+					<option value="green">Green</option>
+					<option value="blue">Blue</option>
+					<option value="pink">Pink</option>
+					<option value="yellow">Yellow</option>
+					<option value="orange">Orange</option>
+					<option value="purple">Purple</option>
+					<option value="random">Random</option>
+				</select>
+			</div>
+
+			<div class="col-md-2">
+				<label for="sel_speed"><i class="fa fa-bolt"
+					aria-hidden="true"></i> Speed</label> <select id="sel_speed"
+					class="form-control">
+					<option value="1000">x 1</option>
+					<option value="100">x 10</option>
+					<option value="10" selected>x 100</option>
+					<option value="1">x 1000</option>
+				</select>
+			</div>
+
+			<div class="col-md-2">
+				<label for="sel_pixel_size"><i class="fa fa-arrows-alt"
+					aria-hidden="true"></i> Pixel Size</label> <select id="sel_pixel_size"
+					class="form-control" onchange="reset();">
+					<option value="1">x 1</option>
+					<option value="2">x 2</option>
+					<option value="4" selected>x 4</option>
+					<option value="8">x 8</option>
+				</select>
+			</div>
+
+			<div class="col-md-2">
+				<label for="sel_pattern"><i class="fa fa-cubes"
+					aria-hidden="true"></i> Pattern</label> <select id="sel_pattern"
+					class="form-control" onchange="reset();">
+					<option value="standard">Standard</option>
+					<option value="random">Random</option>
+				</select>
+			</div>
+
+			<div class="col-md-2">
+				<label for="sel_number"><i class="fa fa-heart"
+					aria-hidden="true"></i> Number</label> <select id="sel_number"
+					class="form-control" onchange="reset();">
+					<option value="1">1</option>
+					<option value="2">2</option>
+					<option value="3">3</option>
+					<option value="4">4</option>
+				</select>
+			</div>
+
+			<div class="col-md-2">
+				<label><i class="fa fa-youtube-play" aria-hidden="true"></i>
+					Control</label>
+				<div>
+					<button id="btn_pause" class="btn btn-danger" onclick="pause();">
+						<i class="fa fa-pause" aria-hidden="true"></i>
+					</button>
+					<button id="btn_play" class="btn btn-success" onclick="play();">
+						<i class="fa fa-play" aria-hidden="true"></i>
+					</button>
+					<button class="btn btn-primary" onclick="reset()">
+						<i class="fa fa-undo" aria-hidden="true"></i>
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<div>
+			<canvas id="canvas" class="center-block" width="512" height="512"></canvas>
+		</div>
+
+		<div class="row">
+			<div class="progress">
+				<div id="dv_progress"
+					class="progress-bar progress-bar-striped active" role="progressbar"
+					aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
+					style="width: 0%;">
+					<span id="sp_progress"></span>
+				</div>
+			</div>
+		</div>
+
+		<div class="modal fade" id="cover_modal" tabindex="-1" role="dialog">
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div id="countdown"></div>
+				</div>
+			</div>
+		</div>
+
+		<footer>
+			<div class="row">
+				<div class="col-md-12">
+					<p>Copyright &copy; 2016</p>
+				</div>
+			</div>
+		</footer>
+	</div>
+</body>
+</html>
